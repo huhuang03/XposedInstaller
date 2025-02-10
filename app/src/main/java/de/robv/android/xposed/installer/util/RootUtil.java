@@ -19,6 +19,7 @@ import de.robv.android.xposed.installer.XposedApp;
 import de.robv.android.xposed.installer.installation.FlashCallback;
 import eu.chainfire.libsuperuser.Shell;
 import eu.chainfire.libsuperuser.Shell.OnCommandResultListener;
+import eu.chainfire.libsuperuser.StreamGobbler;
 
 import static de.robv.android.xposed.installer.util.InstallZipUtil.triggerError;
 
@@ -86,15 +87,23 @@ public class RootUtil {
     }
 
 
-    private final Shell.OnCommandResultListener mOpenListener = new Shell.OnCommandResultListener() {
+    private final Shell.OnShellOpenResultListener mOpenListener = new Shell.OnShellOpenResultListener() {
         @Override
-        public void onCommandResult(int commandCode, int exitCode, List<String> output) {
-            mStdoutListener.onCommandResult(commandCode, exitCode);
+        public void onOpenResult(boolean success, int reason) {
+            mStdoutListener.onCommandResult(0, reason);
         }
     };
 
     private final Shell.OnCommandLineListener mStdoutListener = new Shell.OnCommandLineListener() {
-        public void onLine(String line) {
+        @Override
+        public void onSTDOUT(String line) {
+            if (mCallback != null) {
+                mCallback.onLine(line);
+            }
+        }
+
+        @Override
+        public void onSTDERR(String line) {
             if (mCallback != null) {
                 mCallback.onLine(line);
             }
@@ -110,17 +119,9 @@ public class RootUtil {
         }
     };
 
-    private final Shell.OnCommandLineListener mStderrListener = new Shell.OnCommandLineListener() {
-        @Override
-        public void onLine(String line) {
-            if (mCallback != null) {
-                mCallback.onErrorLine(line);
-            }
-        }
-
-        @Override
-        public void onCommandResult(int commandCode, int exitCode) {
-            // Not called for STDERR listener.
+    private final StreamGobbler.OnLineListener mStderrListener = line -> {
+        if (mCallback != null) {
+            mCallback.onErrorLine(line);
         }
     };
 
